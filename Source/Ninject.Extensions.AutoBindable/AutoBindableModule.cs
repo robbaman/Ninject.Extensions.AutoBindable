@@ -13,13 +13,30 @@ namespace Ninject.Extensions.AutoBindable {
             var autoBindInterfaces = allTypes.Where(i => i != autoBindInterface && i.IsInterface && autoBindInterface.IsAssignableFrom(i));
             // Find the implementations of these inheriting interfaces.
             foreach (var autoBind in autoBindInterfaces) {
-                var implementations = allTypes.Where(i => i.IsClass && !i.IsAbstract && autoBind.IsAssignableFrom(i));
-                foreach (var implementation in implementations) {
-                    // Bind the implementations automatically
-                    Bind(autoBind).To(implementation);
+                if (autoBind.IsGenericType) {
+                    var implementations = from t in allTypes
+                                          from i in t.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == autoBind)
+                                          where t.IsClass
+                                                && !t.IsAbstract
+                                          select new {
+                                              Type = t,
+                                              Interface = i
+                                          };
+
+                    foreach (var implementation in implementations) {
+                        //var intF = implementation.GetInterfaces().First(j => j.IsGenericType && j.GetGenericTypeDefinition() == autoBind);
+                        //var genType = intF.GenericTypeArguments[0];
+                        Bind(autoBind.MakeGenericType(implementation.Interface.GenericTypeArguments)).To(implementation.Type);
+                    }
+
+                } else {
+                    var implementations = allTypes.Where(i => i.IsClass && !i.IsAbstract && autoBind.IsAssignableFrom(i));
+                    foreach (var implementation in implementations) {
+                        // Bind the implementations automatically
+                        Bind(autoBind).To(implementation);
+                    }
                 }
             }
-
         }
     }
 }
